@@ -1,0 +1,35 @@
+{
+  "model": "agnes-2.5-flash",
+  "transport": "sdk",
+  "requests": [
+    {
+      "status": 200,
+      "tokens": {
+        "input": 757,
+        "output": 29,
+        "total": 786
+      }
+    },
+    {
+      "status": 200,
+      "tokens": {
+        "input": 882,
+        "output": 106,
+        "total": 988
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_books",
+      "success": true,
+      "book": {
+        "id": "B001",
+        "stock": 10,
+        "price_cents": 4500
+      }
+    }
+  ],
+  "outcome": "passed",
+  "answer": "已查询《数据库系统概论》（B001）的库存和单价：\n\n- **书名**：数据库系统概论  \n- **作者**：王珊  \n- **价格**：4500 分（即 45.00 元）  \n- **库存**：10 本  \n- **来源说明**：旧课程种子数据；价格与库存为模拟，出版资料未核实  \n\n如需下单，请提供购买数量后我将为您生成订单预览。"
+}

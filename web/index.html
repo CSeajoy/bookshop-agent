@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>书店小管家 · 门店工作台</title>
+<link rel="stylesheet" href="/app.css?v=20261110-6">
+<script type="module" src="/app.js?v=20261110-6"></script>
+</head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="#overview" data-go="overview">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M16 10c-2.7-2.2-6-2.8-10-2v14c4-.8 7.3-.2 10 2 2.7-2.2 6-2.8 10-2V8c-4-.8-7.3-.2-10 2Zm0 0v14M9 12c1.4 0 2.6.3 3.7.8M9 16c1.4 0 2.6.3 3.7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 8.6c1-.4 2-.6 3-.7v8.6l-1.5-1.2-1.5 1.4z" fill="#edc39d"/>
+    </svg>
+    <span>书店小管家<small>门店工作台</small></span>
+  </a>
+  <nav aria-label="主导航">
+    <button data-view="overview" class="active" aria-current="page">经营概览</button>
+    <button data-view="books">图书库存</button>
+    <button data-view="orders">订单中心</button>
+    <button data-view="rules">门店规则</button>
+  </nav>
+</aside>
+<div class="workspace">
+  <header class="topbar">
+    <div><h1 id="page-title" tabindex="-1">经营概览</h1><p id="page-description">查看库存、缺货提醒和本会话订单。</p></div>
+    <svg id="overview-shelf" viewBox="0 0 168 70" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 61h150v5H9zM24 26h15v35H24zM42 11h16v50H42zM61 19h13v42H61zM79 58l11-38 14 4-11 37zM112 51h39v10h-39zM116 41h32v10h-32z"/>
+      <path d="M28 33h7m-7 4h7m11-18h8m-8 4h8m10 4h7m-7 4h7m23-2 7 2m-8 2 7 2m20 11h23m-27 10h29"/>
+    </svg>
+    <div class="top-actions"><button id="refresh" class="secondary">刷新数据</button><button id="assistant-toggle" class="secondary" aria-controls="assistant" aria-expanded="false">门店助手</button></div>
+  </header>
+  <div id="notice" role="status" hidden></div>
+  <div class="layout assistant-closed">
+    <main>
+      <section id="order-workflow" class="panel" aria-labelledby="order-workflow-title" hidden>
+        <div class="section-head"><h2 id="order-workflow-title" tabindex="-1">订单办理</h2></div>
+        <p id="order-status" role="status"></p>
+        <p id="order-error" class="error" role="alert"></p>
+        <div id="previews" aria-live="polite"></div>
+      </section>
+      <section id="view-overview" class="view">
+        <div id="metrics" class="metrics" aria-label="经营指标"></div>
+        <details class="panel usage-guide" open>
+          <summary>操作指南</summary>
+          <ul>
+            <li><button type="button" class="link" data-go="books">开单</button><span>找书、填册数，核对预览后确认。</span></li>
+            <li><button type="button" class="link" data-restock-list>补货</button><span>在库存表登记到货册数。</span></li>
+            <li><button type="button" class="link" data-all-orders>查订单</button><span>按书名或订单编号搜索。</span></li>
+          </ul>
+          <p>点书名可查库存流水。需要用自然语言查询时，打开右上角「门店助手」。</p>
+        </details>
+        <div class="two-panels">
+          <section class="panel"><div class="section-head"><h2>库存提醒</h2><button type="button" class="link" data-restock-list>查看待补货</button></div><div id="low-stock"></div></section>
+          <section class="panel"><div class="section-head"><h2>分类库存</h2><small>可售册数</small></div><div id="category-bars"></div></section>
+        </div>
+        <section class="panel overview-orders"><div class="section-head"><h2>最近订单</h2><button type="button" class="link" data-all-orders>全部订单</button></div><div id="recent-orders"></div></section>
+      </section>
+      <section id="view-books" class="view" hidden>
+        <form id="filters" class="filters">
+          <input id="keyword" aria-label="搜索图书" placeholder="书名、作者或编号">
+          <select id="category" aria-label="图书分类"><option value="">全部分类</option></select>
+          <input id="max-price" type="number" min="0" step="0.01" aria-label="最高价格" placeholder="最高价">
+          <select id="stock-filter" aria-label="库存筛选"><option value="">全部库存</option><option value="in">有库存</option><option value="restock">待补货（0–2 册）</option><option value="low">低库存</option><option value="out">已售罄</option></select>
+          <button type="reset" class="secondary">重置</button>
+        </form>
+        <section class="panel inventory">
+          <div class="section-head"><h2>图书清单</h2><small id="book-count" role="status"></small></div>
+          <p id="inventory-filters" class="inventory-filters"></p>
+          <div id="books"></div>
+        </section>
+      </section>
+      <section id="view-orders" class="view" hidden>
+        <input id="order-filter" type="search" placeholder="搜索订单编号、书名或图书编号" aria-label="搜索订单">
+        <section class="panel order-panel">
+          <div class="section-head"><h2 id="order-list-title" tabindex="-1">本会话订单</h2><small id="order-count" role="status"></small></div>
+          <div id="orders"></div>
+        </section>
+      </section>
+      <section id="view-rules" class="view" hidden>
+        <form id="rules-form" class="rule-form"><input id="rule-query" placeholder="例如：订单预览多久有效？" aria-label="规则问题" required maxlength="300"><button>查找</button></form>
+        <div class="rule-prompts"><button data-rule="订单预览五分钟确认">下单与确认</button><button data-rule="退款物流支付服务范围">服务范围</button><button data-rule="重启会话订单">会话与订单</button></div>
+        <div id="rule-results"></div>
+      </section>
+    </main>
+    <aside id="assistant" class="panel" aria-label="门店助手" hidden>
+      <div class="assistant-title"><div><h2>门店助手</h2><small id="model-status">正在检查服务…</small></div><button id="clear-chat" class="link">清空</button></div>
+      <div class="mode-row"><label for="mode">运行方式</label><select id="mode"><option value="demo">本地演示</option><option value="live">Agnes 模型</option></select></div>
+      <div id="messages" class="messages" role="log" aria-label="对话记录" aria-live="polite" tabindex="0"></div>
+      <div id="quick-actions"><button data-prompt="查询 50 元以内的数据库图书">查 50 元以内的数据库书</button><button data-prompt="查询订单预览有效期">查预览有效期</button></div>
+      <form id="chat-form"><textarea id="message" aria-label="输入需求" placeholder="例如：查 B001 还有几本" maxlength="1000" rows="2"></textarea><div class="composer-foot"><small id="mode-hint">演示模式请使用上方快捷查询</small><button type="button" id="cancel" class="secondary" hidden>停止</button><button id="send">发送</button></div></form>
+      <p id="error" class="error" role="alert"></p>
+      <details id="execution">
+        <summary>执行记录 <span id="step-count">尚无记录</span></summary>
+        <ol id="steps" aria-label="本轮工具执行步骤"></ol>
+      </details>
+    </aside>
+  </div>
+</div>
+<dialog id="detail"><div class="dialog-head"><h2 id="detail-title">详情</h2><button id="close-detail" class="link" aria-label="关闭详情">关闭</button></div><div id="detail-body"></div></dialog>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>
