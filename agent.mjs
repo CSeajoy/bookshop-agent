@@ -7,18 +7,18 @@ export const tools=[
  {type:'function',function:{name:'preview_order',description:'创建订单预览。不会创建订单或扣库存，用户必须点击确认按钮。',parameters:{type:'object',properties:{book_id:{type:'string'},quantity:{type:'integer',minimum:1,maximum:20}},required:['book_id','quantity'],additionalProperties:false}}},
  {type:'function',function:{name:'get_order',description:'查询当前会话的订单，需准确订单编号',parameters:{type:'object',properties:{order_id:{type:'string'}},required:['order_id'],additionalProperties:false}}}
 ];
-export function execute(store,session,name,args){
+export function execute(store,session,name,args,ruleSearch=searchRules){
  if(!args||typeof args!=='object'||Array.isArray(args))throw new Error('工具参数须为对象');
  const allowed={search_books:['keyword','max_price'],preview_order:['book_id','quantity'],get_order:['order_id'],search_policies:['query']};
  if(!allowed[name])throw new Error('工具不受支持');
  if(Object.keys(args).some(k=>!allowed[name].includes(k)))throw new Error('包含未知参数');
- if(name==='search_policies')return searchRules(args.query);
+ if(name==='search_policies')return ruleSearch(args.query);
  if(name==='search_books')return store.search(args);
  if(name==='preview_order')return store.quote(session,args);
  return store.order(session,args.order_id);
 }
 
-export async function runAgent({store,session,message,history=[],emit,config,fetcher,transport,signal}){
+export async function runAgent({store,session,message,history=[],emit,config,fetcher,transport,signal,ruleSearch}){
  if(!config.key||!config.model)throw new Error('真实模型未配置；请先填写本机 .env');
  const url=new URL(config.base);if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error('模型地址无效');
  if(history.length>60)throw new Error('会话较长，请清空聊天后重试');
@@ -36,7 +36,7 @@ export async function runAgent({store,session,message,history=[],emit,config,fet
  })
  .addNode('execute_tools',async s=>{
   emit('status',{message:'LangGraph：校验并执行业务工具',node:'execute_tools'});const results=[];
-  for(const c of s.pending){signal?.throwIfAborted();let result;emit('tool_start',{name:c.function.name});try{result=execute(store,session,c.function.name,JSON.parse(c.function.arguments));}catch(e){result={error:e.status?e.message:'参数无效或工具执行失败'};}
+  for(const c of s.pending){signal?.throwIfAborted();let result;emit('tool_start',{name:c.function.name});try{result=await execute(store,session,c.function.name,JSON.parse(c.function.arguments),ruleSearch);}catch(e){result={error:e.status?e.message:'参数无效或工具执行失败'};}
    emit('tool_result',{name:c.function.name,result});results.push({role:'tool',tool_call_id:c.id,name:c.function.name,content:JSON.stringify(result)});
   }
   return {messages:[...s.messages,...results],calls:s.calls+s.pending.length};

@@ -1,3 +1,7 @@
 node_modules/
 .env
 runtime/
+
+dist/
+.edgeone/
+makers/data.generated.mjs

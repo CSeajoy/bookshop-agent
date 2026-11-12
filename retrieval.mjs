@@ -1,9 +1,34 @@
-import {readdirSync,readFileSync,mkdirSync,writeFileSync,existsSync} from 'node:fs';
-import {createHash} from 'node:crypto';
-const folder=new URL('./policies/',import.meta.url), cache=new URL('./runtime/rule-index.json',import.meta.url);
-function tokens(s){const words=s.toLowerCase().match(/[a-z0-9_-]+|[\u4e00-\u9fff]/g)||[];const out=[...words];for(let i=0;i<words.length-1;i++)if(/^[\u4e00-\u9fff]$/.test(words[i])&&/^[\u4e00-\u9fff]$/.test(words[i+1]))out.push(words[i]+words[i+1]);return out;}
-function vector(s){const v={};for(const t of tokens(s))v[t]=(v[t]||0)+1;return v;}
-function score(a,b){let dot=0;for(const k in a)dot+=a[k]*(b[k]||0);return dot/(Math.hypot(...Object.values(a))*Math.hypot(...Object.values(b))||1);}
-export function buildIndex(){mkdirSync(new URL('./runtime/',import.meta.url),{recursive:true});let previous={};try{if(existsSync(cache))previous=JSON.parse(readFileSync(cache,'utf8'));}catch{}const files={};let changed=0;for(const name of readdirSync(folder).filter(x=>x.endsWith('.md'))){const text=readFileSync(new URL(name,folder),'utf8'),hash=createHash('sha256').update(text).digest('hex');if(previous[name]?.hash===hash){files[name]=previous[name];continue;}changed++;const chunks=[];for(let start=0;start<text.length;start+=380){const content=text.slice(start,start+500);chunks.push({source:name,chunk:chunks.length+1,content,vector:vector(content)});}files[name]={hash,chunks};}writeFileSync(cache,JSON.stringify(files));return {files,changed};}
+import { readdirSync, readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { indexDocument, matchRules } from './rule-search.mjs';
+
+const folder = new URL('./policies/', import.meta.url);
+const cache = new URL('./runtime/rule-index.json', import.meta.url);
 let index;
-export function searchRules(query){if(typeof query!=='string'||!query.trim()||query.length>300)throw new Error('规则查询须为1至300字');index??=buildIndex();const v=vector(query);return Object.values(index.files).flatMap(x=>x.chunks).map(c=>({source:c.source,chunk:c.chunk,excerpt:c.content,score:score(v,c.vector)})).filter(c=>c.score>=0.06).sort((a,b)=>b.score-a.score).slice(0,3);}
+
+export function buildIndex() {
+  mkdirSync(new URL('./runtime/', import.meta.url), { recursive: true });
+  let previous = {};
+  try {
+    if (existsSync(cache)) previous = JSON.parse(readFileSync(cache, 'utf8'));
+  } catch {}
+  const files = {};
+  let changed = 0;
+  for (const name of readdirSync(folder).filter(file => file.endsWith('.md'))) {
+    const text = readFileSync(new URL(name, folder), 'utf8');
+    const hash = createHash('sha256').update(text).digest('hex');
+    if (previous[name]?.hash === hash) {
+      files[name] = previous[name];
+    } else {
+      files[name] = { hash, chunks: indexDocument(name, text) };
+      changed++;
+    }
+  }
+  writeFileSync(cache, JSON.stringify(files));
+  return { files, changed };
+}
+
+export function searchRules(query) {
+  index ??= buildIndex();
+  return matchRules(query, Object.values(index.files).flatMap(file => file.chunks));
+}
