@@ -40,7 +40,7 @@ export async function runAgent({store,session,message,history=[],emit,config,fet
  .addNode('request_model',async s=>{
   signal?.throwIfAborted();
   emit('status',{message:'LangGraph：请求模型选择工具或汇总结果',node:'request_model',round:s.round+1,calls:s.calls});
-  let m;try{m=await requestModel({config,messages:s.messages,tools,fetcher,signal,transport:transport||(fetcher?'fetch':config.transport||'sdk')});}catch(e){if(signal?.aborted)throw e;if(e.message?.startsWith('模型服务返回 HTTP'))throw e;throw new Error('模型请求失败，请核对权限、限流或协议；未回传上游原始详情');}
+  let m;try{m=await requestModel({config,messages:s.messages,tools,fetcher,signal,transport:transport||(fetcher?'fetch':config.transport||'sdk')});}catch(e){if(signal?.aborted)throw e;if(e.message?.startsWith('模型服务返回 HTTP'))throw e;const host=new URL(config.base).hostname;const status=Number(e.statusCode);if(Number.isInteger(status)&&status>=400&&status<=599)throw new Error('模型服务返回 HTTP '+status+'（'+host+'），请核对该服务的密钥、模型权限与接口配置');const code=e.cause?.code||e.code;if(['ENOTFOUND','ETIMEDOUT','ECONNREFUSED','ECONNRESET','CERT_HAS_EXPIRED','UNABLE_TO_VERIFY_LEAF_SIGNATURE'].includes(code))throw new Error('模型连接失败（'+host+'，'+code+'），请检查服务地址与云端网络');throw new Error('模型请求失败（'+host+'），请核对权限、限流或协议；未回传上游原始详情');}
   const tc=m.tool_calls;
   if(!tc?.length){if(typeof m.content!=='string'||!m.content.trim())throw new Error('模型返回空回答');emit('answer',{text:m.content});return {messages:[...s.messages,{role:'assistant',content:m.content}],pending:[],finished:true,round:s.round+1};}
   if(!Array.isArray(tc)||tc.length>3||s.calls+tc.length>6)throw new Error('工具调用数量超过限制');

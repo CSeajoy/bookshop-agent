@@ -46,3 +46,12 @@ test('多轮修改预览和查询最近订单，旧预览失效且会话隔离',
   assert.equal(store.confirm('visitor',revised.quote_id).replayed,true);
  }finally{store.close();}
 });
+
+
+test('SDK错误只显示安全HTTP状态和域名，不泄露上游正文',async()=>{
+ const s=new Store();try{
+ await assert.rejects(runAgent({store:s,session:'diagnostic',message:'查询库存',emit:()=>{},config:{key:'secret-not-for-output',model:'mock',base:'https://example.invalid/v1',transport:'sdk'},transport:'sdk',fetcher:async()=>new Response(JSON.stringify({error:{message:'private-upstream-secret'}}),{status:401,headers:{'Content-Type':'application/json'}})}),error=>{
+  assert.match(error.message,/HTTP 401/);assert.match(error.message,/example.invalid/);assert(!error.message.includes('private-upstream-secret'));assert(!error.message.includes('secret-not-for-output'));return true;
+ });
+ }finally{s.close();}
+});
