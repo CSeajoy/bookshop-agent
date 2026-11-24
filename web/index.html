@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>书店小管家 · 门店工作台</title>
-<link rel="stylesheet" href="/app.css?v=20261110-6">
-<script type="module" src="/app.js?v=20261110-6"></script>
+<link rel="stylesheet" href="/app.css?v=20261124-3">
+<script type="module" src="/app.js?v=20261124-3"></script>
 </head>
 <body>
 <aside class="sidebar">
@@ -66,6 +66,7 @@
           <select id="stock-filter" aria-label="库存筛选"><option value="">全部库存</option><option value="in">有库存</option><option value="restock">待补货（0–2 册）</option><option value="low">低库存</option><option value="out">已售罄</option></select>
           <button type="reset" class="secondary">重置</button>
         </form>
+        <section id="cart-panel" class="panel cart-panel" aria-labelledby="cart-title"><div class="section-head"><h2 id="cart-title">开单清单</h2><span id="cart-count">尚未选择图书</span></div><div id="cart-items"></div><p id="cart-error" class="error" role="alert"></p><div class="cart-footer"><strong id="cart-total"></strong><button type="button" id="cart-preview">生成合并预览</button></div></section>
         <section class="panel inventory">
           <div class="section-head"><h2>图书清单</h2><small id="book-count" role="status"></small></div>
           <p id="inventory-filters" class="inventory-filters"></p>
@@ -86,9 +87,11 @@
       </section>
     </main>
     <aside id="assistant" class="panel" aria-label="门店助手" hidden>
-      <div class="assistant-title"><div><h2>门店助手</h2><small id="model-status">正在检查服务…</small></div><button id="clear-chat" class="link">清空</button></div>
+      <div class="assistant-title"><div><h2>门店助手</h2><small id="model-status">正在检查服务…</small></div><div class="assistant-actions"><button id="expand-assistant" class="link" aria-expanded="false" aria-controls="assistant">展开</button><button id="clear-chat" class="link">清空</button></div></div>
       <div class="mode-row"><label for="mode">运行方式</label><select id="mode"><option value="demo">本地演示</option><option value="live">Agnes 模型</option></select></div>
+      <div id="active-context" class="active-context" aria-label="当前处理单据"></div>
       <div id="messages" class="messages" role="log" aria-label="对话记录" aria-live="polite" tabindex="0"></div>
+      <p id="assistant-progress" class="assistant-progress" role="status" hidden></p>
       <div id="quick-actions"><button data-prompt="查询 50 元以内的数据库图书">查 50 元以内的数据库书</button><button data-prompt="查询订单预览有效期">查预览有效期</button></div>
       <form id="chat-form"><textarea id="message" aria-label="输入需求" placeholder="例如：查 B001 还有几本" maxlength="1000" rows="2"></textarea><div class="composer-foot"><small id="mode-hint">演示模式请使用上方快捷查询</small><button type="button" id="cancel" class="secondary" hidden>停止</button><button id="send">发送</button></div></form>
       <p id="error" class="error" role="alert"></p>

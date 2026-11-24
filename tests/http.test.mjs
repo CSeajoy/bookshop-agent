@@ -128,3 +128,20 @@ test('HTTP：客户端停止后取消模型请求，同一会话可继续使用'
   assert.equal(next.status,200);assert.match(await next.text(),/event: done/);
  }finally{await server?.stop();upstream.closeAllConnections();await new Promise(r=>upstream.close(r));await rm(dir,{recursive:true,force:true});}
 });
+
+
+test('HTTP：合并单据刷新读取、持久化重启和单笔订单展示',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'bookshop-cart-http-'));let server;
+ try{
+  const db=join(dir,'cart.sqlite');server=await start(db);const c=client(server);
+  const q=await(await c.request('/api/preview',{items:[{book_id:'B001',quantity:2},{book_id:'B002',quantity:1}]})).json();
+  const w=await(await c.request('/api/workspace')).json();assert.equal(w.previews[0].quote_id,q.quote_id);
+  const cookie=c.cookie;await server.stop();server=await start(db);const restored=client(server);restored.cookie=cookie;
+  const after=await(await restored.request('/api/workspace')).json();assert.equal(after.scope,w.scope);assert.equal(after.previews[0].items.length,2);
+  const order=await(await restored.request('/api/confirm',{quote_id:q.quote_id})).json();assert.equal(order.total_cents,12980);
+  assert.equal((await(await restored.request('/api/orders')).json()).length,1);
+  assert.equal((await(await restored.request('/api/order?id='+order.id)).json()).items.length,2);
+  assert.equal((await(await restored.request('/api/workspace')).json()).previews.length,0);
+  assert.equal((await client(server).request('/api/order?id='+order.id)).status,404);
+ }finally{await server?.stop();await rm(dir,{recursive:true,force:true});}
+});

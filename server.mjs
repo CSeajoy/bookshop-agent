@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { readFileSync,mkdirSync } from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { Store,BusinessError } from './store.mjs';
 import {runAgent,execute} from './agent.mjs';
 import {relayOpenAI} from './gateway.mjs';
@@ -24,6 +24,7 @@ const server=http.createServer(async(req,res)=>{
   if(sid&&!sessions.has(sid)){const saved=store.session(sid);if(saved)sessions.set(sid,saved);}
   if(!sessions.has(sid)){sid=randomUUID();sessions.set(sid,{history:[],busy:false,last:Date.now()});store.saveSession(sid,sessions.get(sid));res.setHeader('Set-Cookie',`bs_session=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`);}
   const session=sessions.get(sid);session.last=Date.now();
+  if(req.method==='GET'&&url.pathname==='/api/workspace')return send(res,200,{scope:createHash('sha256').update(sid).digest('hex'),previews:store.previews(sid)});
   if(req.method==='GET'&&url.pathname==='/api/books')return send(res,200,store.search());
   if(req.method==='GET'&&url.pathname==='/api/stock')return send(res,200,store.stockHistory(url.searchParams.get('book_id')));
   if(req.method==='GET'&&url.pathname==='/api/order')return send(res,200,store.order(sid,url.searchParams.get('id')));
@@ -36,7 +37,7 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname==='/api/restock')return send(res,200,store.restock(b));
   if(url.pathname==='/api/preview'){
    if(session.busy)throw new BusinessError('请等待本轮结束',409);
-   const quote=Object.hasOwn(b,'quote_id') ? store.reviseQuote(sid,b.quote_id,b.quantity) : store.quote(sid,b);
+   const quote=Object.hasOwn(b,'quote_id') ? store.reviseQuote(sid,b.quote_id,b.items ?? b.quantity) : store.quote(sid,b);
    return send(res,200,quote);
   }
   if(url.pathname==='/api/confirm'){if(session.busy)throw new BusinessError('请等待本轮结束',409);const o=store.confirm(sid,b.quote_id);if(!o.replayed)session.history.push({role:'user',content:`用户已在界面确认模拟订单，服务端结果：${JSON.stringify(o)}`});store.saveSession(sid,session);return send(res,200,o);}

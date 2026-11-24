@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { BusinessError } from '../bookshop-store.mjs';
 import { execute, runAgent } from '../agent.mjs';
 import { searchRules } from './rules.mjs';
@@ -104,6 +105,8 @@ export async function handleBookshop(context) {
     const persist = opened.persist;
     const session = store.session(sid) || { history: [] };
     switch (url.pathname) {
+      case '/api/workspace':
+        return json({scope:createHash('sha256').update(sid).digest('hex'),previews:store.previews(sid)});
       case '/api/books':
         return json(store.search());
       case '/api/orders':
@@ -119,7 +122,7 @@ export async function handleBookshop(context) {
       }
       case '/api/preview': {
         const quote = Object.hasOwn(data, 'quote_id')
-          ? store.reviseQuote(sid, data.quote_id, data.quantity) : store.quote(sid, data);
+          ? store.reviseQuote(sid, data.quote_id, data.items ?? data.quantity) : store.quote(sid, data);
         await persist();
         return json(quote);
       }
