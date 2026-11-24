@@ -13,3 +13,36 @@ test('达到调用上限后终止，不循环扣费',async()=>{const s=new Store
 test('网关JSON透传不丢tools与tool_call_id',async()=>{let written,bodySeen;const res={writeHead(){},end(x){written=JSON.parse(x)}};await relayOpenAI({config,body:{model:config.model,messages:[{role:'assistant',content:null,tool_calls:[{id:'x',type:'function',function:{name:'search_books',arguments:'{}'}}]},{role:'tool',tool_call_id:'x',content:'[]'}],tools,stream:false},response:res,fetcher:async(u,o)=>{bodySeen=JSON.parse(o.body);return response({role:'assistant',content:'完成'})}});assert.equal(bodySeen.tools.length,4);assert.equal(bodySeen.messages[1].tool_call_id,'x');assert.equal(written.choices[0].message.content,'完成');});
 test('网关SSE逐块透传，不丢工具参数片段和DONE',async()=>{const chunks=['data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"}}]}}]}\n\n','data: [DONE]\n\n'];let out='';const r={destroyed:false,writeHead(){},write(x){out+=new TextDecoder().decode(x);return true},end(){}};await relayOpenAI({config,body:{model:config.model,messages:[{role:'user',content:'查询'}],tools,stream:true},response:r,fetcher:async()=>new Response(new ReadableStream({start(c){for(const x of chunks)c.enqueue(new TextEncoder().encode(x));c.close()}}),{headers:{'Content-Type':'text/event-stream'}})});assert.equal(out,chunks.join(''));});
 test('网关拒绝配置外模型，不发出网络请求',async()=>{let called=false;await assert.rejects(relayOpenAI({config,body:{model:'paid-other',messages:[]},response:{},fetcher:async()=>{called=true}}),/已配置/);assert.equal(called,false)});
+
+test('多轮修改预览和查询最近订单，旧预览失效且会话隔离',async()=>{
+ const store=new Store();
+ const events=[];
+ const quote=store.quote('visitor',{book_id:'B001',quantity:2});
+ let count=0;
+ try{
+  await runAgent({
+   store,session:'visitor',message:'把刚才的预览改成三本',config,
+   emit:(name,data)=>events.push([name,data]),
+   fetcher:async(url,options)=>{
+    const body=JSON.parse(options.body);
+    if(count++===0){
+     assert(body.messages.some(message=>message.role==='system'&&message.content.includes(quote.quote_id)));
+     return response({role:'assistant',content:null,tool_calls:[{id:'revise-1',type:'function',function:{name:'preview_order',arguments:JSON.stringify({quote_id:quote.quote_id,quantity:3})}}]},'tool_calls');
+    }
+    return response({role:'assistant',content:'已更新，请核对后确认。'});
+   },
+  });
+  const revised=events.find(([name,data])=>name==='tool_result'&&data.name==='preview_order')[1].result;
+  assert.equal(revised.quantity,3);
+  assert.equal(revised.total_cents,13500);
+  assert.equal(revised.replaces_quote_id,quote.quote_id);
+  assert.equal(store.search({keyword:'B001'})[0].stock,10);
+  assert.throws(()=>store.confirm('visitor',quote.quote_id),/预览不存在/);
+  assert.throws(()=>execute(store,'other','preview_order',{quote_id:revised.quote_id,quantity:1}),/预览不存在/);
+  const order=store.confirm('visitor',revised.quote_id);
+  assert.equal(execute(store,'visitor','get_order',{}).id,order.id);
+  assert.equal(store.search({keyword:'B001'})[0].stock,7);
+  assert.equal(execute(store,'other','get_order',{}).error,'当前会话暂无订单');
+  assert.equal(store.confirm('visitor',revised.quote_id).replayed,true);
+ }finally{store.close();}
+});

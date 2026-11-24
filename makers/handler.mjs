@@ -31,7 +31,7 @@ function stream(run, signal, release) {
         try {
           await run(emit, combined);
         } catch (error) {
-          if (!combined.aborted) emit('error', { message: error.status ? error.message : '助手暂时无法完成请求' });
+          if (!combined.aborted) emit('error', { message: error.status || /^模型|^达到|^工具调用数量|^会话较长/.test(error.message) ? error.message : '助手暂时无法完成请求，请稍后重试' });
         } finally {
           clearInterval(heartbeat);
           try {
@@ -60,7 +60,7 @@ function demoAction(data) {
 }
 
 function modelSettings(env) {
-  return { key: env.AI_GATEWAY_API_KEY, base: env.AI_GATEWAY_BASE_URL, model: env.BOOKSHOP_MODEL };
+  return { key: env.AI_GATEWAY_API_KEY, base: env.AI_GATEWAY_BASE_URL, model: env.BOOKSHOP_MODEL || env.AI_GATEWAY_MODEL };
 }
 
 export async function handleBookshop(context) {
@@ -144,6 +144,13 @@ export async function handleBookshop(context) {
         if (data.mode === 'live' && !live) invalid('模型模式暂未配置，可使用演示模式', 503);
         const tools = {
           search: args => store.search(args),
+          orders: id => store.orders(id),
+          context: id => store.context(id),
+          reviseQuote: async (id, quoteId, quantity) => {
+            const quote = store.reviseQuote(id, quoteId, quantity);
+            await persist();
+            return quote;
+          },
           order: (id, orderId) => store.order(id, orderId),
           quote: async (id, args) => {
             const quote = store.quote(id, args);

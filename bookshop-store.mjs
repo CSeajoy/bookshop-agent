@@ -92,7 +92,7 @@ export class BookshopStore {
    const revised=this.quote(session,{book_id:existing.book,quantity});
    this.db.prepare('DELETE FROM quotes WHERE id=?').run(id);
    this.db.exec('COMMIT');
-   return revised;
+   return {...revised,replaces_quote_id:id};
   }catch(e){this.db.exec('ROLLBACK');throw e;}
  }
  confirm(session,id){
@@ -111,6 +111,10 @@ export class BookshopStore {
   }catch(e){this.db.exec('ROLLBACK');throw e;}
  }
  order(session,id){check(typeof id==='string','缺少订单编号');const o=this.db.prepare('SELECT o.id,o.book AS book_id,b.name,o.quantity,o.total AS total_cents,o.created FROM orders o JOIN books b ON o.book=b.id WHERE o.id=? AND o.session=?').get(id,session);check(o,'订单不存在',404);return o;}
+ context(session){
+  const previews=this.db.prepare('SELECT id AS quote_id,book AS book_id,quantity FROM quotes WHERE session=? AND order_id IS NULL AND expires>=? ORDER BY expires DESC LIMIT 3').all(session,Date.now());
+  return {previews,recent_order:this.orders(session)[0]||null};
+ }
  orders(session){return this.db.prepare('SELECT o.id,o.book AS book_id,b.name,o.quantity,o.total AS total_cents,o.created FROM orders o JOIN books b ON o.book=b.id WHERE session=? ORDER BY created DESC LIMIT 100').all(session);}
  session(id){const x=this.db.prepare('SELECT history,expires FROM sessions WHERE id=?').get(id);if(!x||x.expires<Date.now())return null;try{return {history:JSON.parse(x.history),busy:false,last:Date.now()};}catch{return null;}}
  saveSession(id,session){this.db.prepare('INSERT INTO sessions VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET history=excluded.history,expires=excluded.expires').run(id,JSON.stringify(session.history),Date.now()+30*86400000);}

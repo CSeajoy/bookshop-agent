@@ -347,7 +347,14 @@ function line(role, text, folded = false) {
   state.messages = state.messages.slice(-30);
   try { localStorage.setItem('bookshop-chat-display-v2', JSON.stringify(state.messages)); } catch {}
 }
+function graphStatus(node, text) {
+  document.querySelectorAll('[data-node]').forEach(item => {
+    item.classList.toggle('active', item.dataset.node === node);
+  });
+  $('graph-status').textContent = text;
+}
 function clearSteps() {
+  graphStatus('', '等待下一项操作');
   $('steps').replaceChildren();
   $('step-count').textContent = '尚无记录';
 }
@@ -586,7 +593,9 @@ function result(name, data) {
   const card = el('div', '', 'tool-result');
   if (name === 'preview_order' && data?.quote_id) {
     step('返回结果', toolNames[name], '预览 ' + data.quantity + ' 册，合计 ' + money(data.total_cents) + '，待店员确认');
-    const receipt = preview(data);
+    const previous = data.replaces_quote_id
+      ? [...$('previews').children].find(card => card.dataset.quote === data.replaces_quote_id) : null;
+    const receipt = preview(data, previous);
     const review = el('button', '核对订单预览', 'link receipt-jump');
     review.onclick = () => revealOrderWorkflow(receipt);
     messages.append(review);
@@ -686,19 +695,31 @@ async function chat(data) {
         } else if (event === 'status' && data.mode === 'demo') {
           step('处理请求', '本地演示', '按页面选择的操作执行');
         } else if (event === 'status' && item.node === 'request_model') {
+          graphStatus('request_model', '模型请求 ' + item.round + '/4 · 已调用工具 ' + (item.calls || 0) + '/6');
           step('处理请求', item.round === 1 ? '模型判断所需操作' : '模型读取工具结果');
-        } else if (event === 'tool_start') step('调用工具', toolNames[item.name] || '运行业务工具');
+        } else if (event === 'status' && item.node === 'execute_tools') {
+          graphStatus('execute_tools', '正在校验并执行工具');
+        } else if (event === 'status' && item.node === 'limit') {
+          graphStatus('limit', '已达到本轮调用上限');
+        } else if (event === 'tool_start') {
+          graphStatus(data.mode === 'live' ? 'execute_tools' : '', data.mode === 'live' ? '正在调用工具 ' + item.call + '/6' : '按快捷操作执行');
+          step('调用工具', toolNames[item.name] || '运行业务工具');
+        }
         else if (event === 'tool_result') {
           const displayed = result(item.name, item.result);
           shownResult ||= displayed;
           shownPreview ||= displayed && item.name === 'preview_order';
-        } else if (event === 'done') completed = true;
+        } else if (event === 'done') {
+          completed = true;
+          if (!$('error').textContent) graphStatus('', '本轮处理完成');
+        }
       }
       if (done) break;
     }
     if (!completed) throw Error('连接中断，本轮可能未完成，请核对结果后重试。');
   } catch (e) {
     if (e.name === 'AbortError') {
+      graphStatus('', '本轮已停止');
       line('label', '本轮请求已停止。已生成的预览和确认过的订单仍保留。');
       step('请求停止', '用户停止本轮请求');
     } else {

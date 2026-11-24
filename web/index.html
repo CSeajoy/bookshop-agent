@@ -94,7 +94,11 @@
       <p id="error" class="error" role="alert"></p>
       <details id="execution">
         <summary>执行记录 <span id="step-count">尚无记录</span></summary>
-        <ol id="steps" aria-label="本轮工具执行步骤"></ol>
+        <div id="graph-flow" class="graph-flow" aria-label="LangGraph执行流程">
+          <span data-node="request_model">模型判断</span><span aria-hidden="true">↔</span><span data-node="execute_tools">工具执行</span><span aria-hidden="true">→</span><span data-node="limit">上限检查</span>
+        </div>
+        <p id="graph-status" role="status">模型模式会显示当前节点和调用次数</p>
+        <ol id="steps"  aria-label="本轮工具执行步骤"></ol>
       </details>
     </aside>
   </div>

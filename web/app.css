@@ -425,3 +425,5 @@ dd { margin: 0; overflow-wrap: anywhere; }
   .book-actions button { padding-inline: 4px; }
 }
 
+
+.graph-flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0}.graph-flow [data-node]{padding:6px 8px;border:1px solid #d9cbbd;border-radius:4px}.graph-flow .active{background:#844633;color:white;border-color:#844633}#graph-status{font-size:14px;line-height:1.5;color:#67584c;margin:0 0 12px}
