@@ -61,7 +61,8 @@ function demoAction(data) {
 }
 
 function modelSettings(env) {
-  return { key: env.AI_GATEWAY_API_KEY, base: env.AI_GATEWAY_BASE_URL, model: env.BOOKSHOP_MODEL || env.AI_GATEWAY_MODEL };
+  const custom = Boolean(env.BOOKSHOP_API_KEY || env.BOOKSHOP_BASE_URL);
+  return { key: custom ? env.BOOKSHOP_API_KEY : env.AI_GATEWAY_API_KEY, base: custom ? env.BOOKSHOP_BASE_URL : env.AI_GATEWAY_BASE_URL, model: env.BOOKSHOP_MODEL || env.AI_GATEWAY_MODEL };
 }
 
 export async function handleBookshop(context) {

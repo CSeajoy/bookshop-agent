@@ -74,3 +74,13 @@ test('大量合并子报价不会挤掉独立单本预览',()=>{
   assert.equal(restored.filter(x=>x.items).length,4);
  }finally{s.close();}
 });
+
+
+test('Makers独立模型配置成对使用，不混入平台网关密钥',async()=>{
+ const sid='10000000-0000-4000-8000-000000000001';
+ const health=async env=>(await handleBookshop({request:{method:'POST',headers:{'makers-conversation-id':sid},body:{path:'/health'}},conversation_id:sid,env})).json();
+ const platform={AI_GATEWAY_API_KEY:'platform-key',AI_GATEWAY_BASE_URL:'https://example.invalid/v1',BOOKSHOP_MODEL:'mock'};
+ assert.equal((await health(platform)).live_configured,true);
+ assert.equal((await health({...platform,BOOKSHOP_BASE_URL:'https://custom.invalid/v1'})).live_configured,false);
+ assert.equal((await health({...platform,BOOKSHOP_BASE_URL:'https://custom.invalid/v1',BOOKSHOP_API_KEY:'custom-key'})).live_configured,true);
+});
